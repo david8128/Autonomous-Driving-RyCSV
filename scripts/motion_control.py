@@ -11,8 +11,49 @@ import time
 from control import Motion
 from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import Twist
+from dynamic_reconfigure.server import Server
+from auto_drive_rycsv.cfg import controllerConfig
 
+def gen_traj():
+    n = 9
+    rad = 15
+    th = np.deg2rad(90/n)
 
+    corner_dots_1 = np.zeros((n,3))
+
+    for u in range(n):
+        x = 12 + rad*np.sin(th*u)
+        y = -1*rad*np.cos(th*u)
+        corner_dots_1[u] = np.array([x,y,np.rad2deg(th*u)])   
+
+    corner_dots_2 = np.zeros((n,3))
+
+    for u in range(n):
+        x = 12 + rad*np.cos(th*u)
+        y = rad*np.sin(th*u)
+        corner_dots_2[u] = np.array([x,y,np.rad2deg(th*u)+90])
+
+    corner_dots_3 = np.zeros((n,3))
+
+    for u in range(n):
+        x = -12 - (rad*np.sin(th*u))
+        y = rad*np.cos(th*u)
+        corner_dots_3[u] = np.array([x,y,np.rad2deg(th*u)+180])   
+
+    corner_dots_4 = np.zeros((n,3))
+
+    for u in range(n):
+        x = -12 - (rad*np.cos(th*u))
+        y = -1*rad*np.sin(th*u)
+        corner_dots_4[u] = np.array([x,y,np.rad2deg(th*u)+270])  
+
+    oval = np.concatenate((corner_dots_1, 
+                           corner_dots_2, 
+                           corner_dots_3, 
+                           corner_dots_4), 
+                           axis=0)
+    print(oval)
+    return oval
     
 if __name__ == '__main__':
 
@@ -29,21 +70,17 @@ if __name__ == '__main__':
     controlador = Motion()
 
     #Square trajectory for testing
-    traj = np.array([[0,0,0],
-                       [2,0,0],
-                       [2,0,90],
-                       [2,2,90],
-                       [2,2,180],
-                       [0,2,180],
-                       [0,2,270],
-                       [0,0,270]])
-
-    #Paralelogram trajectory for testing
     #traj = np.array([[0,0,0],
-    #                   [2,1,90],
-    #                   [3,2,0],
-    #                   [4,1,-90]])
+    #                   #[2,0,0],
+    #                   [2,0,90],
+    #                   #[2,2,90],
+    #                   [2,2,180],
+    #                   #[0,2,180],
+    #                   [0,2,270]
+    #                   #[0,0,270]
+    #                   ])
 
+    traj = gen_traj()
 
     #Trajectory limits
     goal_id = 1
@@ -67,7 +104,10 @@ if __name__ == '__main__':
     print('Trayectoria a seguir')
     print(traj)
     
-    time.sleep(15)
+    #Server to get param from dynamic reconfig
+    srv = Server(controllerConfig, controlador.set_controller_params)
+
+    time.sleep(5)
 
     while (not rospy.is_shutdown()):
 
