@@ -76,6 +76,7 @@ class Motion:
         print('b gain: '+str(self.k_b))
         return(config)
         
+        
 
     def broadcast_goal(self,now):
         #Broadcast goal position as TF transform
@@ -160,6 +161,7 @@ class Motion:
             self.v_out = min(v,self.cruise_lin)     
         else:
             self.v_out = max(-1*v,-1*self.cruise_lin) 
+        
 
         #Print controller out for debugging
         print("--")
@@ -170,7 +172,7 @@ class Motion:
 
     def arrived2goal(self):
         #Check is robot base has arrived to goal (Baseline 0.02, all three errors)
-        if (abs(self.error_x)<0.02 and abs(self.error_y)<0.02 and abs(self.error_th)<0.02):
+        if (abs(self.error_x)<0.02 and abs(self.error_y)<0.02 and abs(self.error_th)<0.03):
             return True
         else:
             return False
