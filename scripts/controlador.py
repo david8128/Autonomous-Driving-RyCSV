@@ -8,11 +8,10 @@ import math
 import numpy as np
 import time
 from geometry_msgs.msg import TransformStamped
-from geometry_msgs.msg import Twist
 
 
-class Motion:
-    
+class controller:
+
     def __init__(self):
 
         #Controller Gains
@@ -32,57 +31,46 @@ class Motion:
         #Goal transform broadcaster
         self.goal_br = tf2_ros.TransformBroadcaster()
 
-        #Errors
+        #Error transform listener
+        self.tfBuffer = tf2_ros.Buffer()
+        self.error_listener = tf2_ros.TransformListener(self.tfBuffer)
+
+        #Errors (rectagular)
         self.error_x = 0.0
         self.error_y = 0.0
         self.error_th = 0.0
 
-        #Error transform broadcaster
-        self.tfBuffer = tf2_ros.Buffer()
-        self.error_listener = tf2_ros.TransformListener(self.tfBuffer)
-
-        #Error publisher (Debuging)
-        self.error_pub = rospy.Publisher('error', TransformStamped, queue_size=10)
-
-        #Polar coordinates error
+        #Errors (polar)
         self.alpha = 0.0
         self.beta = 0.0
         self.p = 0.0
-
-        #Controller Vector
-        self.k_vector = np.array([[-1*self.k_p*self.p*math.cos(self.alpha),
-                                   (self.k_p*math.sin(self.alpha))-(self.k_a*self.alpha)-(self.beta*self.k_b),
-                                    -1*self.k_p*math.sin(self.alpha)]])
-
-        #Polar speeds
-        self.alpha_dot = 0.0
-        self.beta_dot = 0.0
-        self.p_dot = 0.0
 
         #Speeds (Controller outs)
         self.v_out = 0.0
         self.w_out = 0.0
 
-    def set_controller_params(self,config, level):
+        #Goal reached flag
+        self.done = False
+
+    def set_controller_params(self):
         #Get control parameters from ROS param server
         #This function is a callback from the dynamic reconfigure server
-        self.k_p = rospy.get_param('/motion_controller/k_p')
-        self.k_a = rospy.get_param('/motion_controller/k_a')
-        self.k_b = rospy.get_param('/motion_controller/k_b')
-        self.cruise_lin = rospy.get_param('/motion_controller/cruise/lin')
-        self.cruise_ang = rospy.get_param('/motion_controller/cruise/ang')
-        print('p gain: '+str(self.k_p))
-        print('a gain: '+str(self.k_a))
-        print('b gain: '+str(self.k_b))
-        return(config)
-        
-        
+        self.k_p = rospy.get_param('/motion_control/k_p')
+        self.k_a = rospy.get_param('/motion_control/k_a')
+        self.k_b = rospy.get_param('/motion_control/k_b')
+        self.cruise_lin = rospy.get_param('/motion_control/cruise_lin')
+        self.cruise_ang = np.deg2rad(rospy.get_param('/motion_control/cruise_ang'))
+        rospy.loginfo('*-- CONTROL PARAMS HAVE CHANGED --*')
+        rospy.loginfo('p gain: '+str(self.k_p))
+        rospy.loginfo('a gain: '+str(self.k_a))
+        rospy.loginfo('b gain: '+str(self.k_b))
+        rospy.loginfo('linear cruise speed: '+str(self.cruise_lin))
+        rospy.loginfo('angular cruise speed: '+str(np.rad2deg(self.cruise_ang)))
 
     def broadcast_goal(self,now):
         #Broadcast goal position as TF transform
 
         t = TransformStamped()
-
         t.header.stamp = now
         t.header.frame_id = "odom" #Fixed Frame
         t.child_frame_id = "goal" #Goal frame
@@ -99,10 +87,13 @@ class Motion:
         self.goal_br.sendTransform(t) #Broadcast
     
     def set_goal(self,x,y,th):
+        #Set goal position and orientation (header frame: odom)
+        #Orientation in degrees
+
         self.x_goal = x
         self.y_goal = y
         self.th_goal = np.deg2rad(th)
-
+    
     def compute_error(self,now):
         #Measure error from base footprint to goal
         try:
@@ -117,62 +108,65 @@ class Motion:
             self.error_x = trans.transform.translation.x * -1 #Negative (measured from goal to base, inverted)
             self.error_y = trans.transform.translation.y * -1
             self.error_th = rpy[2] #Orientation respecting right hand rule
-            self.error_pub.publish(trans) #Publish error in topic for debugging
 
             #Print error for debugging
             print("--")
-            print("Error X-Y-Th")
-            print("Error x:"+str(self.error_x))
-            print("Error y:"+str(self.error_y))
-            print("Error th:"+str(self.error_th))
-            print("--")
-
+            print("Rectangular Errors")
+            print("X:"+str(self.error_x))
+            print("Y:"+str(self.error_y))
+            print("Theta: "+str(self.error_th)+" rad / "+str(np.rad2deg(self.error_th))+" deg")
+            
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             print("Exception")
-    
+            
+
     def transform_error(self):
         #Transform error from X-Y cartesian cordinates to polar coordinates
         #Refer to: Roland Siegwart, Intro to autonomus mobile robots - Chap 3 (Control Law)
         self.p = math.sqrt((pow(self.error_x,2) + pow(self.error_y,2)))
         self.alpha = (-1 * self.error_th) + math.atan2(self.error_y,self.error_x)
-        self.beta = (-1 * self.error_th) - (self.alpha)
+        self.beta = ((-1 * self.error_th) - (self.alpha)) * 1
 
         #Print polar error for debugging
         print("--")
-        print("ERROR POLAR")
-        print("alpha: "+str(self.alpha))
-        print("beta: "+str(self.beta))
-        print("p: "+str(self.p))
-        print("--")
-
+        print("Polar Errors")
+        print("Alpha: "+str(self.alpha)+" rad / "+str(np.rad2deg(self.alpha))+" deg")
+        print("Beta: "+str(self.beta)+" rad / "+str(np.rad2deg(self.beta))+" deg")
+        print("Rho: "+str(self.p))
+        
+    
     def control_speed(self):
 
         #Control Law
         #Refer to: Roland Siegwart, Intro to autonomus mobile robots - Chap 3 (Control Law)
         v = self.p * self.k_p                               #Linear speed
         w = self.k_a * self.alpha + self.k_b * self.beta    #Angular speed
-        
-        #Angular speed limit
-        self.w_out = np.sign(w)*min(abs(w),abs(np.deg2rad(self.cruise_ang)))
-        self.v_out = min(v,self.cruise_lin)
 
-        #Lineal speed limit and reverse correction
-        if(self.alpha <= (np.pi/2) or self.alpha >= (-np.pi/2)):
-            self.v_out = min(v,self.cruise_lin)     
-        else:
-            self.v_out = max(-1*v,-1*self.cruise_lin) 
-        
+        self.v_out = v
+        self.w_out = w
+
+        #Limit Speed (Saturation)
+        if np.abs(v) > self.cruise_lin: 
+            self.v_out = np.sign(v) * self.cruise_lin
+        if np.abs(w) > self.cruise_ang:
+            self.w_out = np.sign(w) * self.cruise_ang
+
+        #Reorient no linear move
+        if (np.abs(self.error_x) < 0.02 and np.abs(self.error_y) < 0.02):
+            self.v_out = 0
 
         #Print controller out for debugging
         print("--")
-        print(" SALIDA CONTROLADOR")
+        print("Controller Out")
         print("V out :"+str(self.v_out))
         print("W out :"+str(self.w_out))
-        print("--")
 
-    def arrived2goal(self):
-        #Check is robot base has arrived to goal (Baseline 0.02, all three errors)
-        if (abs(self.error_x)<0.02 and abs(self.error_y)<0.02 and abs(self.error_th)<0.03):
-            return True
+        
+    def check_goal_reached(self):
+        if (np.abs(self.error_x) < 0.02 and np.abs(self.error_y) < 0.02 and np.abs(self.error_th) < np.deg2rad(1)):
+            self.done = True
+            self.v_out = 0
+            self.w_out = 0
         else:
-            return False
+            self.done = False
+        
