@@ -3,12 +3,13 @@
 import numpy as np
 import cv2
 import os
+import math
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
 class line_detector:
 
-    def __init__(self):
+    def __init__(self, ros):
         self.image_path = os.path.abspath(os.path.join(os.path.abspath(__file__), '../../tests'))
         self.image_name = "" 
         self.frame = np.array([])
@@ -22,10 +23,18 @@ class line_detector:
         self.width = 0
         self.left_line = np.array([])
         self.right_line = np.array([])
+        self.ros_flag = ros
 
-    def read_frame(self, image_name):
+    def read_frame_file(self, image_name):
         image = cv2.imread(self.image_path +'/'+ image_name)
         image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+        self.frame = np.array(image)
+        gray = cv2.cvtColor(image,cv2.COLOR_RGB2GRAY)
+        self.frame_gray = np.array(gray)
+        self.heigth = image.shape[0]
+        self.width = image.shape[1]   
+    
+    def read_frame_ros_msgs(self, image):
         self.frame = np.array(image)
         gray = cv2.cvtColor(image,cv2.COLOR_RGB2GRAY)
         self.frame_gray = np.array(gray)
@@ -75,16 +84,15 @@ class line_detector:
     
     def mask_interest_region(self):
         mask_points = np.array([[0,self.heigth],
-                                [0, 250],
-                                [self.width, 250],
+                                [0, 300],
+                                [self.width, 300],
                                 [self.width, self.heigth]], 'int32')
         mask = np.zeros_like(self.frame_canny)
         cv2.fillConvexPoly(mask, mask_points, 255)
         self.frame_masked = cv2.bitwise_and(self.frame_canny, mask)
     
     def lines_hough(self):
-        lines = cv2.HoughLinesP(self.frame_masked, 1, np.pi/180,50, minLineLength=60, maxLineGap=5)
-        print(lines)
+        lines = cv2.HoughLinesP(self.frame_masked, 1, np.pi/180,50, minLineLength=100, maxLineGap=10)
         if lines is not None: 
             temp = np.copy(self.frame)
             for line in lines:
@@ -96,6 +104,7 @@ class line_detector:
             print("Number of lines detected: "+str(len(lines)))
         else:
             print("No lines detected")
+            self.frame_hough = np.zeros_like(self.frame)
         return lines
     
     def average_lines(self, lines):
@@ -112,12 +121,18 @@ class line_detector:
                     left_group = np.append(left_group,[[slope, intercept]],axis=0) 
                 else: 
                     right_group = np.append(right_group,[[slope, intercept]],axis=0) 
+            
+            left_group = np.delete(left_group, 0, 0)
+            right_group = np.delete(right_group, 0, 0)
+            
+            print("Left lines : ")
+            print(left_group)
+            print("Right lines: ")
+            print(right_group)
 
             left_group_average = np.average(left_group , axis = 0) 
             right_group_average = np.average(right_group , axis = 0) 
 
-            print("Amount of left lines: "+str(len(left_group_average)))
-            print("Amount of right lines: "+str(len(right_group_average)))
             print("Left lines average: "+str(left_group_average))
             print("Right lines average: "+str(right_group_average))
 
@@ -131,16 +146,22 @@ class line_detector:
             print("Right line coordinates: "+ str(right_line))
         else:
             self.left_line = ([0,0,0,0])
-            self.left_line = ([0,0,0,0])
+            self.right_line = ([0,0,0,0])
 
     
     def create_coordinates(self, line_parameters): 
-        slope, intercept = line_parameters 
-        y1 = self.frame_gray.shape[0] 
-        y2 = int(y1*2/5) 
-        x1 = int((y1 - intercept) / slope) 
-        x2 = int((y2 - intercept) / slope) 
-        return np.array([x1, y1, x2, y2])   
+        if not math.isnan(line_parameters[0]):
+            slope, intercept = line_parameters 
+            y1 = self.frame_gray.shape[0] 
+            #y2 = int(y1*3/5) 
+            y2 = 600
+            if slope == 0:
+                return np.array([0, 0, 0, 0]) 
+            x1 = int((y1 - intercept) / slope) 
+            x2 = int((y2 - intercept) / slope) 
+            return np.array([x1, y1, x2, y2])  
+        else:
+            return np.array([0, 0, 0, 0]) 
 
     def draw_lines(self): 
         line_image = np.zeros_like(self.frame) 
@@ -151,8 +172,16 @@ class line_detector:
         self.frame_raw_lines = line_image
         self.frame_detected = cv2.addWeighted(line_image, 0.8, self.frame, 1, 1) 
     
-    def update(self):
-        self.read_frame(self.image_name)
+    def update_from_file(self):
+        self.read_frame_file(self.image_name)
+        self.edge_detection()
+        self.mask_interest_region()
+        lines = self.lines_hough()
+        self.average_lines(lines)
+        self.draw_lines()
+ 
+    def update_from_ros(self, ros_img):
+        self.read_frame_ros_msgs(ros_img)
         self.edge_detection()
         self.mask_interest_region()
         lines = self.lines_hough()
@@ -160,15 +189,13 @@ class line_detector:
         self.draw_lines()
  
 
+""" if __name__ == "__main__":
 
-        
-if __name__ == "__main__":
-
-    detector = line_detector()
-    detector.image_name = "road_13.png"
-    detector.update()
+    detector = line_detector(False)
+    detector.image_name = "road_12.png"
+    detector.update_from_file()
     detector.plot_all_frames()
-
+ """
 
     
 
