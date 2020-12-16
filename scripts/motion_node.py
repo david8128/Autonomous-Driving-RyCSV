@@ -7,6 +7,7 @@ from dynamic_reconfigure.server import Server
 from auto_drive_rycsv.cfg import controllerConfig
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Int32
+import numpy as np
 
 #Callback function from dynamic reconfigure
 def callback(config, level):
@@ -48,17 +49,17 @@ if __name__ == "__main__":
     #Error suscriber
     error_vision = 0
     vision_error_sus = rospy.Subscriber('vision/error', Int32, error_callback)
-
-
+    list_error_vision = np.repeat(error_vision, 20)
     #Node Loop
     while(not rospy.is_shutdown()):
         
         #Set goal 
         k_vision = rospy.get_param('/motion_node/k_vision')
+        k_th = rospy.get_param('/motion_node/k_th')
         #k_vision = 0.01
         x = 2
-        y = error_vision*(-1)*k_vision
-        th = 0
+        y = np.mean(list_error_vision)*(-1)*k_vision
+        th = np.mean(list_error_vision)*(-1)*k_th
         goal = [x,y,th]
         kobuki_controller.set_goal(float(goal[0]),float(goal[1]),float(goal[2]))
 
@@ -92,6 +93,7 @@ if __name__ == "__main__":
             goal = [x,y,th]
             kobuki_controller.set_goal(float(goal[0]),float(goal[1]),float(goal[2]))
  """
+            np.insert(list_error_vision[1:], list_error_vision.size-1, error_vision)
             print("Este es el Goal: ")
             print(goal)
 
