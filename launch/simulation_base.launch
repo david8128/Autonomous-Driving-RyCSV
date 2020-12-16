@@ -4,23 +4,24 @@
     <!-- Simulation Parameters -->
     <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
     <arg name="x_pos" default="0.0"/>
-    <arg name="y_pos" default="0.0"/> <!-- AWS race track use: -15 -->
-    <arg name="z_pos" default="0.0"/> <!-- AWS race track use: 0.2 -->
+    <arg name="y_pos" default="-15.0"/> <!-- AWS race track use: -15 -->
+    <arg name="z_pos" default="0.2"/> <!-- AWS race track use: 0.2 -->
     <arg name="mode" default="day" doc="mode of the track to load, valid options are 'day' or 'night'"/>
 
     <!-- Gazebo Initialization (Load World) -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
-        <!--
+
         <arg name="world_name" value="$(find aws_robomaker_racetrack_world)/worlds/racetrack_$(arg mode).world"/> 
-        -->
+        <!--
         <arg name="world_name" value="$(find turtlebot3_gazebo)/worlds/empty.world"/>
+        -->
         <arg name="paused" value="false"/>
         <arg name="use_sim_time" value="true"/>
         <arg name="gui" value="true"/>
         <arg name="headless" value="false"/>
         <arg name="debug" value="false"/>
     </include>
-
+ 
     <!-- Set robot description (Robot: Turtlebot3 Waffle) -->
     <param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
 
@@ -37,5 +38,12 @@
 
     <!-- RViz Launch -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find auto_drive_rycsv)/config/simulation.rviz"/>
+
+    <!-- Control Node -->
+    <node name="motion_node" pkg="auto_drive_rycsv" type="motion_node.py" output="screen"/>
+
+    <!-- Vision Node -->
+    <node name="vision_node" pkg="auto_drive_rycsv" type="vision_node.py" output="screen"/>
+
 
 </launch>

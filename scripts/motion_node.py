@@ -6,6 +6,7 @@ from controlador import controller
 from dynamic_reconfigure.server import Server
 from auto_drive_rycsv.cfg import controllerConfig
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Int32
 
 #Callback function from dynamic reconfigure
 def callback(config, level):
@@ -13,12 +14,21 @@ def callback(config, level):
     dyn_flag = 1
     print('Param change requested...')
     return config
-    
+
+#Callback error for vision error
+def error_callback(data):
+    global error_vision
+    error_vision = data.data
+      
 
 if __name__ == "__main__":
 
+    print("MOTION WAITING FOR GAZEBO")
+    rospy.wait_for_service('/gazebo/spawn_urdf_model') #Wait for model spawn
+    time.sleep(2)
+
     #Node initialization
-    rospy.init_node("motion_control", anonymous = False)
+    rospy.init_node("motion_node", anonymous = False)
     rate = rospy.Rate(50) # 50 Hz ROS
 
     #Controller init
@@ -35,15 +45,26 @@ if __name__ == "__main__":
     kobuki_speed_pub = rospy.Publisher(nameSpeedTopic, Twist, queue_size=10)
     command = Twist()
 
+    #Error suscriber
+    error_vision = 0
+    vision_error_sus = rospy.Subscriber('vision/error', Int32, error_callback)
+
+
     #Node Loop
     while(not rospy.is_shutdown()):
         
-        #Get goal from user input
-        input_raw = raw_input("Enter goal coordinates [X,Y,TH]: ")
-        goal = input_raw.split(",")
-
         #Set goal 
+        k_vision = rospy.get_param('/motion_node/k_vision')
+        #k_vision = 0.01
+        x = 2
+        y = error_vision*(-1)*k_vision
+        th = 0
+        goal = [x,y,th]
         kobuki_controller.set_goal(float(goal[0]),float(goal[1]),float(goal[2]))
+
+        #Broadcast goal TF
+        goal_time = rospy.Time.now()
+        kobuki_controller.broadcast_goal(goal_time)
 
         #Check and change controllers params if requested 
         if dyn_flag == 1:
@@ -53,25 +74,32 @@ if __name__ == "__main__":
         print("Moving to "+ str(goal) + " (X,Y,TH)")
         print("--")
 
-        print("Wait 3 sec ...")
+        """ print("Wait 3 sec ...")
         time.sleep(1)
         print("Wait 2 sec ..")
         time.sleep(1)
         print("Wait 1 sec .")
-        time.sleep(1)
-
+        time.sleep(1) """
 
         #Control Loop
         while (kobuki_controller.done == False):
+            """ #Set goal 
+            k_vision = rospy.get_param('/motion_node/k_vision')
+            #k_vision = 0.01
+            x = 1
+            y = error_vision*(-1)*k_vision
+            th = 0
+            goal = [x,y,th]
+            kobuki_controller.set_goal(float(goal[0]),float(goal[1]),float(goal[2]))
+ """
+            print("Este es el Goal: ")
+            print(goal)
 
             #Get "now" time to syncronize target tf and error tf 
             now = rospy.Time.now()
 
-            #Broadcast goal TF
-            kobuki_controller.broadcast_goal(now)
-
             #Control methods
-            kobuki_controller.compute_error(now)
+            kobuki_controller.compute_error(now,goal_time)
             kobuki_controller.transform_error()
             kobuki_controller.control_speed()
 
