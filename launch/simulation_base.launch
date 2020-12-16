@@ -39,4 +39,11 @@
     <!-- RViz Launch -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find auto_drive_rycsv)/config/simulation.rviz"/>
 
+    <!-- Control Node -->
+    <node name="motion_node" pkg="auto_drive_rycsv" type="motion_node.py" output="screen"/>
+
+    <!-- Vision Node -->
+    <node name="vision_node" pkg="auto_drive_rycsv" type="vision_node.py" output="screen"/>
+
+
 </launch>

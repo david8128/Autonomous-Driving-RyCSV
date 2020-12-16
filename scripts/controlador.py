@@ -55,11 +55,11 @@ class controller:
     def set_controller_params(self):
         #Get control parameters from ROS param server
         #This function is a callback from the dynamic reconfigure server
-        self.k_p = rospy.get_param('/motion_control/k_p')
-        self.k_a = rospy.get_param('/motion_control/k_a')
-        self.k_b = rospy.get_param('/motion_control/k_b')
-        self.cruise_lin = rospy.get_param('/motion_control/cruise_lin')
-        self.cruise_ang = np.deg2rad(rospy.get_param('/motion_control/cruise_ang'))
+        self.k_p = rospy.get_param('/motion_node/k_p')
+        self.k_a = rospy.get_param('/motion_node/k_a')
+        self.k_b = rospy.get_param('/motion_node/k_b')
+        self.cruise_lin = rospy.get_param('/motion_node/cruise_lin')
+        self.cruise_ang = np.deg2rad(rospy.get_param('/motion_node/cruise_ang'))
         rospy.loginfo('*-- CONTROL PARAMS HAVE CHANGED --*')
         rospy.loginfo('p gain: '+str(self.k_p))
         rospy.loginfo('a gain: '+str(self.k_a))
@@ -72,7 +72,7 @@ class controller:
 
         t = TransformStamped()
         t.header.stamp = now
-        t.header.frame_id = "odom" #Fixed Frame
+        t.header.frame_id = "base_footprint" #Fixed Frame
         t.child_frame_id = "goal" #Goal frame
         t.transform.translation.x = self.x_goal 
         t.transform.translation.y = self.y_goal
@@ -139,9 +139,14 @@ class controller:
 
         #Control Law
         #Refer to: Roland Siegwart, Intro to autonomus mobile robots - Chap 3 (Control Law)
-        v = self.p * self.k_p                               #Linear speed
-        w = self.k_a * self.alpha + self.k_b * self.beta    #Angular speed
-
+        if(self.error_x<0.05 and self.error_y<0.05):
+            v = 0                                               #Linear speed
+            w = -self.k_b * self.beta                      #Angular speed
+            print("caso 1")
+        else:
+            v = self.p * self.k_p                               #Linear speed
+            w = self.k_a * self.alpha + self.k_b * self.beta    #Angular speed
+            
         self.v_out = v
         self.w_out = w
 
@@ -154,6 +159,7 @@ class controller:
         #Reorient no linear move
         if (np.abs(self.error_x) < 0.02 and np.abs(self.error_y) < 0.02):
             self.v_out = 0
+            print("caso 3")
 
         #Print controller out for debugging
         print("--")
@@ -163,7 +169,7 @@ class controller:
 
         
     def check_goal_reached(self):
-        if (np.abs(self.error_x) < 0.02 and np.abs(self.error_y) < 0.02 and np.abs(self.error_th) < np.deg2rad(1)):
+        if (np.abs(self.error_x) < 0.05 and np.abs(self.error_y) < 0.05 and np.abs(self.error_th) < np.deg2rad(3)):
             self.done = True
             self.v_out = 0
             self.w_out = 0
