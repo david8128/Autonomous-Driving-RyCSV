@@ -94,10 +94,15 @@ class controller:
         self.y_goal = y
         self.th_goal = np.deg2rad(th)
     
-    def compute_error(self,now):
+    def compute_error(self,now,past):
         #Measure error from base footprint to goal
         try:
-            trans = self.tfBuffer.lookup_transform('goal', 'base_footprint', now, rospy.Duration(1.0))
+            trans = self.tfBuffer.lookup_transform_full(target_frame='goal',
+                                                        target_time=past,
+                                                        source_frame ='base_footprint',
+                                                        source_time=now,
+                                                        fixed_frame='odom',
+                                                        timeout=rospy.Duration(1.0))
             quat = np.zeros(4)
             quat[0] = trans.transform.rotation.x 
             quat[1] = trans.transform.rotation.y 

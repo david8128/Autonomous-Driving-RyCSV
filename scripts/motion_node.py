@@ -19,6 +19,7 @@ def callback(config, level):
 def error_callback(data):
     global error_vision
     error_vision = data.data
+      
 
 if __name__ == "__main__":
 
@@ -44,7 +45,6 @@ if __name__ == "__main__":
     kobuki_speed_pub = rospy.Publisher(nameSpeedTopic, Twist, queue_size=10)
     command = Twist()
 
-
     #Error suscriber
     error_vision = 0
     vision_error_sus = rospy.Subscriber('vision/error', Int32, error_callback)
@@ -56,15 +56,15 @@ if __name__ == "__main__":
         #Set goal 
         k_vision = rospy.get_param('/motion_node/k_vision')
         #k_vision = 0.01
-        x = 1
+        x = 2
         y = error_vision*(-1)*k_vision
         th = 0
         goal = [x,y,th]
         kobuki_controller.set_goal(float(goal[0]),float(goal[1]),float(goal[2]))
 
         #Broadcast goal TF
-        now = rospy.Time.now()
-        kobuki_controller.broadcast_goal(now)
+        goal_time = rospy.Time.now()
+        kobuki_controller.broadcast_goal(goal_time)
 
         #Check and change controllers params if requested 
         if dyn_flag == 1:
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
         #Control Loop
         while (kobuki_controller.done == False):
-            #Set goal 
+            """ #Set goal 
             k_vision = rospy.get_param('/motion_node/k_vision')
             #k_vision = 0.01
             x = 1
@@ -91,18 +91,15 @@ if __name__ == "__main__":
             th = 0
             goal = [x,y,th]
             kobuki_controller.set_goal(float(goal[0]),float(goal[1]),float(goal[2]))
-
+ """
             print("Este es el Goal: ")
             print(goal)
 
             #Get "now" time to syncronize target tf and error tf 
             now = rospy.Time.now()
 
-            #Broadcast goal TF
-            kobuki_controller.broadcast_goal(now)
-
             #Control methods
-            kobuki_controller.compute_error(now)
+            kobuki_controller.compute_error(now,goal_time)
             kobuki_controller.transform_error()
             kobuki_controller.control_speed()
 
