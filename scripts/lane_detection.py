@@ -6,7 +6,8 @@ import os
 import math
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-
+import warnings
+warnings.simplefilter('ignore', np.RankWarning)
 class line_detector:
 
     def __init__(self, ros):

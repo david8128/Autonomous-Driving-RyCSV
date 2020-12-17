@@ -60,12 +60,12 @@ class controller:
         self.k_b = rospy.get_param('/motion_node/k_b')
         self.cruise_lin = rospy.get_param('/motion_node/cruise_lin')
         self.cruise_ang = np.deg2rad(rospy.get_param('/motion_node/cruise_ang'))
-        rospy.loginfo('*-- CONTROL PARAMS HAVE CHANGED --*')
-        rospy.loginfo('p gain: '+str(self.k_p))
-        rospy.loginfo('a gain: '+str(self.k_a))
-        rospy.loginfo('b gain: '+str(self.k_b))
-        rospy.loginfo('linear cruise speed: '+str(self.cruise_lin))
-        rospy.loginfo('angular cruise speed: '+str(np.rad2deg(self.cruise_ang)))
+        # rospy.loginfo('*-- CONTROL PARAMS HAVE CHANGED --*')
+        # rospy.loginfo('p gain: '+str(self.k_p))
+        # rospy.loginfo('a gain: '+str(self.k_a))
+        # rospy.loginfo('b gain: '+str(self.k_b))
+        # rospy.loginfo('linear cruise speed: '+str(self.cruise_lin))
+        # rospy.loginfo('angular cruise speed: '+str(np.rad2deg(self.cruise_ang)))
 
     def broadcast_goal(self,now):
         #Broadcast goal position as TF transform
@@ -115,11 +115,11 @@ class controller:
             self.error_th = rpy[2] #Orientation respecting right hand rule
 
             #Print error for debugging
-            print("--")
-            print("Rectangular Errors")
-            print("X:"+str(self.error_x))
-            print("Y:"+str(self.error_y))
-            print("Theta: "+str(self.error_th)+" rad / "+str(np.rad2deg(self.error_th))+" deg")
+            # print("--")
+            # print("Rectangular Errors")
+            # print("X:"+str(self.error_x))
+            # print("Y:"+str(self.error_y))
+            # print("Theta: "+str(self.error_th)+" rad / "+str(np.rad2deg(self.error_th))+" deg")
             
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             print("Exception")
@@ -133,11 +133,11 @@ class controller:
         self.beta = ((-1 * self.error_th) - (self.alpha)) * 1
 
         #Print polar error for debugging
-        print("--")
-        print("Polar Errors")
-        print("Alpha: "+str(self.alpha)+" rad / "+str(np.rad2deg(self.alpha))+" deg")
-        print("Beta: "+str(self.beta)+" rad / "+str(np.rad2deg(self.beta))+" deg")
-        print("Rho: "+str(self.p))
+        # print("--")
+        # print("Polar Errors")
+        # print("Alpha: "+str(self.alpha)+" rad / "+str(np.rad2deg(self.alpha))+" deg")
+        # print("Beta: "+str(self.beta)+" rad / "+str(np.rad2deg(self.beta))+" deg")
+        # print("Rho: "+str(self.p))
         
     
     def control_speed(self):
@@ -167,10 +167,10 @@ class controller:
             print("caso 3")
 
         #Print controller out for debugging
-        print("--")
-        print("Controller Out")
-        print("V out :"+str(self.v_out))
-        print("W out :"+str(self.w_out))
+        # print("--")
+        # print("Controller Out")
+        # print("V out :"+str(self.v_out))
+        # print("W out :"+str(self.w_out))
 
         
     def check_goal_reached(self):
